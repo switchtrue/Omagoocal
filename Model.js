@@ -354,6 +354,17 @@ function isWebLink(url) {
   return /^https:\/\/\S+$/i.test(String(url || ""))
 }
 
+// Event descriptions are HTML written by whoever created the invite. Qt's
+// rich-text renderer handles the formatting tags (a, b, i, u, ul, ol, li, p,
+// br) safely — it runs no scripts — but we strip anything that would fetch a
+// remote resource (an <img> in an invite is a tracking pixel) or is pure
+// noise, so opening an event never phones home.
+function renderNotes(html) {
+  return String(html || "")
+    .replace(/<\s*(script|style)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+    .replace(/<\s*img\b[^>]*>/gi, "")
+}
+
 function nextEvent(events, now) {
   for (var i = 0; i < events.length; i++) {
     if (events[i].allDay) continue

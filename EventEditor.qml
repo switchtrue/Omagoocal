@@ -66,10 +66,11 @@ Item {
       startAt: parsedStart,
       endAt: parsedEnd
     }
-    // Send only what changed. The notes field is one line; a description
-    // with paragraphs that was never touched must reach Google untouched.
+    // Send only what changed. The notes editor is initialised to the exact
+    // description, so a note that was only read (never edited) compares equal
+    // here and reaches Google untouched — HTML formatting and all.
     if (locationField.text.trim() !== String(draft.location || "")) out.location = locationField.text.trim()
-    if (notesField.text !== String(draft.description || "")) out.description = notesField.text
+    if (notesEditText.text !== String(draft.description || "")) out.description = notesEditText.text
     if (colorId !== String(draft.colorId || "")) out.colorId = colorId
     panel.saveEvent(out)
   }
@@ -390,12 +391,96 @@ Item {
           foreground: root.panel.ink
         }
 
-        TextField {
-          id: notesField
+        // Notes: rendered rich text by default, with an Edit toggle revealing a
+        // raw multi-line editor. notesEditText holds the description verbatim,
+        // so an untouched note compares equal in commit() and is never re-sent.
+        Column {
+          id: notes
           width: parent.width
-          text: root.draft ? root.draft.description : ""
-          placeholderText: "Notes"
-          foreground: root.panel.ink
+          spacing: Style.space(4)
+          // A new or empty event opens ready to type; existing notes open read.
+          property bool editing: root.draft ? String(root.draft.description || "").trim() === "" : true
+
+          Item {
+            width: parent.width
+            height: Math.max(notesLabel.implicitHeight, notesToggle.implicitHeight)
+
+            Text {
+              id: notesLabel
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              text: "NOTES"
+              color: root.panel.faint
+              font.family: root.panel.mono
+              font.pixelSize: Style.font.caption
+              font.letterSpacing: 1.5
+            }
+
+            Button {
+              id: notesToggle
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              text: notes.editing ? "DONE" : "EDIT"
+              foreground: root.panel.dim
+              accent: Color.accent
+              fontFamily: root.panel.mono
+              fontSize: Style.font.caption
+              horizontalPadding: 0
+              onClicked: notes.editing = !notes.editing
+            }
+          }
+
+          // Rendered view. The card's own Flickable scrolls a long note.
+          Text {
+            id: notesView
+            width: parent.width
+            visible: !notes.editing && notesEditText.text.trim() !== ""
+            text: Model.renderNotes(notesEditText.text)
+            textFormat: Text.RichText
+            color: root.panel.ink
+            wrapMode: Text.Wrap
+            font.family: root.panel.mono
+            font.pixelSize: Style.font.bodySmall
+            linkColor: Color.accent
+            onLinkActivated: function(link) {
+              if (Model.isWebLink(link)) Quickshell.execDetached(["/usr/bin/xdg-open", link])
+            }
+          }
+
+          Text {
+            width: parent.width
+            visible: !notes.editing && notesEditText.text.trim() === ""
+            text: "No notes"
+            color: root.panel.faint
+            font.family: root.panel.mono
+            font.pixelSize: Style.font.bodySmall
+          }
+
+          // Raw editor: plain multi-line text (TextEdit — the shell has no
+          // multi-line field). What you type is what is saved, verbatim.
+          Rectangle {
+            width: parent.width
+            visible: notes.editing
+            height: Math.max(Style.space(76), notesEditText.implicitHeight + Style.space(16))
+            radius: Style.cornerRadius
+            color: "transparent"
+            border.width: 1
+            border.color: notesEditText.activeFocus ? Color.accent : Util.alpha(root.panel.ink, 0.22)
+
+            TextEdit {
+              id: notesEditText
+              anchors.fill: parent
+              anchors.margins: Style.space(8)
+              text: root.draft ? String(root.draft.description || "") : ""
+              color: root.panel.ink
+              selectionColor: Util.alpha(Color.accent, 0.4)
+              selectByMouse: true
+              wrapMode: TextEdit.Wrap
+              textFormat: TextEdit.PlainText
+              font.family: root.panel.mono
+              font.pixelSize: Style.font.bodySmall
+            }
+          }
         }
 
         // Video-conferencing join link (Google Meet, Zoom, Teams, ...). Read
