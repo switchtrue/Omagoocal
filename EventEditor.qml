@@ -398,6 +398,59 @@ Item {
           foreground: root.panel.ink
         }
 
+        // Video-conferencing join link (Google Meet, Zoom, Teams, ...). Read
+        // only: it is never sent back on save, so it can't be clobbered. Shown
+        // only for a real https link — the same trust rule as every other URL
+        // in this panel.
+        Item {
+          width: parent.width
+          height: joinRow.implicitHeight
+          visible: root.draft && Model.isWebLink(root.draft.meetLink || "")
+
+          Row {
+            id: joinRow
+            spacing: Style.space(6)
+
+            Text {
+              text: "󰕧"
+              color: joinArea.containsMouse ? Color.accent : Util.alpha(root.panel.ink, 0.7)
+              font.family: root.panel.mono
+              font.pixelSize: Style.font.bodySmall
+            }
+            Text {
+              text: (root.draft && root.draft.meetLabel)
+                ? "Join " + root.draft.meetLabel
+                : "Join video call"
+              textFormat: Text.PlainText
+              color: joinArea.containsMouse ? Color.accent : root.panel.ink
+              font.family: root.panel.mono
+              font.pixelSize: Style.font.bodySmall
+              font.underline: joinArea.containsMouse
+            }
+          }
+
+          MouseArea {
+            id: joinArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              // Capture the panel up front and defer the close: close() clears
+              // panel.editing, tearing down this editor mid-handler, and opening
+              // the browser can steal focus and null editing first — so we hold
+              // our own reference to the panel rather than reach through root.
+              var p = root.panel
+              Quickshell.execDetached(["/usr/bin/xdg-open", root.draft.meetLink])
+              Qt.callLater(function() { if (p) p.close() })
+            }
+
+            PanelToolTip {
+              visible: joinArea.containsMouse
+              text: root.draft ? root.draft.meetLink : ""
+            }
+          }
+        }
+
         Text {
           width: parent.width
           visible: root.problem !== "" && titleField.text !== ""

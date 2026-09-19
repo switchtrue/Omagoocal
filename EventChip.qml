@@ -130,11 +130,21 @@ Rectangle {
     cursorShape: Qt.PointingHandCursor
     acceptedButtons: Qt.LeftButton | Qt.MiddleButton
     onClicked: function(mouse) {
-      if (root.overflow) root.overflowClicked()
-      else if (mouse.button === Qt.MiddleButton && Model.isWebLink(root.event.link))
+      if (root.overflow) { root.overflowClicked(); return }
+      if (mouse.button === Qt.MiddleButton && Model.isWebLink(root.event.link)) {
         Quickshell.execDetached(["/usr/bin/xdg-open", root.event.link])
-      else
-        root.panel.edit(root.event)
+        return
+      }
+      // A read-only event can't open the editor (and its Join button), so a
+      // left-click jumps straight into the meeting instead of a dead end — and
+      // closes the calendar, the same as the editor's Join button does.
+      if (!root.event.writable && Model.isWebLink(root.event.meetLink || "")) {
+        var p = root.panel
+        Quickshell.execDetached(["/usr/bin/xdg-open", root.event.meetLink])
+        Qt.callLater(function() { if (p) p.close() })
+        return
+      }
+      root.panel.edit(root.event)
     }
 
     PanelToolTip {
@@ -145,6 +155,10 @@ Rectangle {
           + "\n" + Model.rangeLabel(root.event, root.panel.hours12)
           + "\n" + root.event.calendarName
           + (root.event.location ? "\n󰍎 " + root.event.location : "")
+          + (Model.isWebLink(root.event.meetLink || "")
+              ? "\n󰕧 " + (root.event.meetLabel || "Video call")
+                + (root.event.writable ? "" : " — click to join")
+              : "")
     }
   }
 }
