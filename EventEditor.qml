@@ -483,6 +483,102 @@ Item {
           }
         }
 
+        // Participants, organiser first and marked. RSVP status is a coloured
+        // dot; a declined guest is struck through; optional guests are noted.
+        Column {
+          width: parent.width
+          spacing: Style.space(4)
+          visible: root.draft && root.draft.attendees && root.draft.attendees.length > 0
+
+          Text {
+            text: "PARTICIPANTS" + (root.draft && root.draft.attendees ? " · " + root.draft.attendees.length : "")
+            color: root.panel.faint
+            font.family: root.panel.mono
+            font.pixelSize: Style.font.caption
+            font.letterSpacing: 1.5
+          }
+
+          Repeater {
+            model: root.draft && root.draft.attendees ? root.draft.attendees : []
+
+            Column {
+              id: attRow
+              required property var modelData
+              width: parent.width
+              spacing: Style.space(1)
+
+              Item {
+                width: parent.width
+                height: Style.space(22)
+
+                Rectangle {
+                  id: attDot
+                  anchors.left: parent.left
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: Style.space(8)
+                  height: Style.space(8)
+                  radius: width / 2
+                  // RSVP: green accepted, red declined, amber tentative, grey none.
+                  color: {
+                    switch (attRow.modelData.response) {
+                    case "accepted":  return "#33b679"
+                    case "declined":  return Color.urgent
+                    case "tentative": return "#f6bf26"
+                    default:          return Util.alpha(root.panel.ink, 0.35)
+                    }
+                  }
+                }
+
+                Text {
+                  id: attBadge
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  visible: attRow.modelData.organizer
+                  text: "organiser"
+                  color: Color.accent
+                  font.family: root.panel.mono
+                  font.pixelSize: Style.font.caption
+                  font.letterSpacing: 1.0
+                }
+
+                Text {
+                  anchors.left: attDot.right
+                  anchors.leftMargin: Style.space(8)
+                  anchors.right: attBadge.visible ? attBadge.left : parent.right
+                  anchors.rightMargin: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: attRow.modelData.name
+                    + (attRow.modelData.self ? " (you)" : "")
+                    + (attRow.modelData.optional ? " · optional" : "")
+                  textFormat: Text.PlainText
+                  elide: Text.ElideRight
+                  color: attRow.modelData.organizer ? Color.accent : root.panel.ink
+                  font.bold: attRow.modelData.organizer
+                  font.strikeout: attRow.modelData.response === "declined"
+                  font.family: root.panel.mono
+                  font.pixelSize: Style.font.bodySmall
+                }
+              }
+
+              // The RSVP note (most often the reason for a decline), indented
+              // under the name in a quiet, italic voice.
+              Text {
+                visible: !!(attRow.modelData.comment && String(attRow.modelData.comment).length > 0)
+                width: parent.width
+                leftPadding: Style.space(16)
+                bottomPadding: Style.space(3)
+                text: "“" + attRow.modelData.comment + "”"
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                color: Util.alpha(root.panel.ink, 0.55)
+                font.italic: true
+                font.family: root.panel.mono
+                font.pixelSize: Style.font.caption
+              }
+            }
+          }
+        }
+
         // Video-conferencing join link (Google Meet, Zoom, Teams, ...). Read
         // only: it is never sent back on save, so it can't be clobbered. Shown
         // only for a real https link — the same trust rule as every other URL

@@ -662,6 +662,35 @@ def _conference(ev):
     return name, uri
 
 
+MAX_ATTENDEES = 50   # a 500-person invite must not bloat the on-disk snapshot
+
+
+def _attendees(ev):
+    """People on the event, organiser first. Rooms/resources are not people
+    and are dropped. Capped at MAX_ATTENDEES."""
+    org = ev.get("organizer")
+    org_email = org.get("email", "") if isinstance(org, dict) else ""
+    raw = ev.get("attendees")
+    people = []
+    if isinstance(raw, list):
+        for a in raw:
+            if not isinstance(a, dict) or a.get("resource"):
+                continue
+            email = a.get("email") if isinstance(a.get("email"), str) else ""
+            people.append({
+                "name": _text(a.get("displayName") or email or "(guest)", MAX_SHORT),
+                "email": _text(email, MAX_SHORT),
+                "response": _text(a.get("responseStatus"), MAX_SHORT),   # accepted/declined/tentative/needsAction
+                "comment": _text(a.get("comment"), MAX_LOCATION),        # RSVP note, e.g. why they declined
+                "organizer": bool(a.get("organizer")) or (bool(email) and email == org_email),
+                "self": bool(a.get("self")),
+                "optional": bool(a.get("optional")),
+            })
+    # Organiser first; Google's order is otherwise preserved.
+    people.sort(key=lambda p: 0 if p["organizer"] else 1)
+    return people[:MAX_ATTENDEES]
+
+
 def events(time_min, time_max, calendars=None, fresh=False):
     active = [c for c in (calendar_list(fresh) if calendars is None else calendars)
               if not c.get("error") and c["enabled"]]
@@ -715,6 +744,7 @@ def events(time_min, time_max, calendars=None, fresh=False):
                 "link": _text(ev.get("htmlLink"), MAX_SHORT),
                 "meetLink": _text(meet_uri, MAX_SHORT),
                 "meetLabel": _text(meet_name, MAX_SHORT),
+                "attendees": _attendees(ev),
                 "writable": cal["writable"],
                 "recurring": isinstance(ev.get("recurringEventId"), str),
             })
