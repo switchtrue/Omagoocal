@@ -600,6 +600,68 @@ def _gather(pool, jobs, budget):
     return results
 
 
+# A conferencing *join* URL, keyed to the provider it belongs to. Ordered, and
+# each pattern is deliberately tight on the join path so it does not grab the
+# neighbours Zoom drops in the same invite body — its agenda link
+# (docs.zoom.us/agenda) and chat link (/launch/jc) are not join links.
+_JOIN_PATTERNS = (
+    ("Zoom",            re.compile(r'https://[a-z0-9.-]*zoom\.us/(?:j|w|my|wc/join)/[^\s<>"\')]+', re.I)),
+    ("Google Meet",     re.compile(r'https://meet\.google\.com/[^\s<>"\')]+', re.I)),
+    ("Microsoft Teams", re.compile(r'https://teams\.(?:microsoft|live)\.com/[^\s<>"\')]+', re.I)),
+    ("Webex",           re.compile(r'https://[a-z0-9.-]*webex\.com/[^\s<>"\')]*(?:/j\.php|/meet/|/join/|/m/)[^\s<>"\')]*', re.I)),
+)
+
+
+def _scan_conference(text):
+    """First recognised join URL in a free-text field, and its provider."""
+    if not isinstance(text, str) or not text:
+        return "", ""
+    for label, pattern in _JOIN_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            return label, match.group(0)
+    return "", ""
+
+
+def _conference(ev):
+    """Video-conferencing details for an event: (solution name, join URL).
+    Covers Google Meet and any third-party solution Google records in
+    conferenceData (Zoom, Teams, ...), the legacy hangoutsLink, and — because
+    Zoom/Teams/Webex links are so often just pasted in by hand — the location
+    and description fields. Only an https video/join link is returned; phone
+    and SIP entry points are not join-by-click links."""
+    name, uri = "", ""
+    data = ev.get("conferenceData")
+    if isinstance(data, dict):
+        sol = data.get("conferenceSolution")
+        if isinstance(sol, dict) and isinstance(sol.get("name"), str):
+            name = sol["name"]
+        entries = data.get("entryPoints")
+        if isinstance(entries, list):
+            for ep in entries:
+                if not isinstance(ep, dict) or ep.get("entryPointType") != "video":
+                    continue
+                candidate = ep.get("uri")
+                if isinstance(candidate, str) and candidate.startswith("https://"):
+                    uri = candidate
+                    break
+    if not uri:
+        legacy = ev.get("hangoutsLink")
+        if isinstance(legacy, str) and legacy.startswith("https://"):
+            uri = legacy
+            name = name or "Google Meet"
+    if not uri:
+        # location holds a single clean URL far more often than the description,
+        # whose HTML also carries agenda/chat links, so it is scanned first.
+        for field in ("location", "description"):
+            label, found = _scan_conference(ev.get(field))
+            if found:
+                name = name or label
+                uri = found
+                break
+    return name, uri
+
+
 def events(time_min, time_max, calendars=None, fresh=False):
     active = [c for c in (calendar_list(fresh) if calendars is None else calendars)
               if not c.get("error") and c["enabled"]]
@@ -635,6 +697,7 @@ def events(time_min, time_max, calendars=None, fresh=False):
             start, end = ev.get("start"), ev.get("end")
             if not isinstance(start, dict) or not isinstance(end, dict):
                 continue
+            meet_name, meet_uri = _conference(ev)
             out.append({
                 "id": _text(ev["id"], MAX_SHORT),
                 "account": cal["account"],
@@ -650,6 +713,8 @@ def events(time_min, time_max, calendars=None, fresh=False):
                 "location": _text(ev.get("location"), MAX_LOCATION),
                 "description": _text(ev.get("description"), MAX_DESCRIPTION),
                 "link": _text(ev.get("htmlLink"), MAX_SHORT),
+                "meetLink": _text(meet_uri, MAX_SHORT),
+                "meetLabel": _text(meet_name, MAX_SHORT),
                 "writable": cal["writable"],
                 "recurring": isinstance(ev.get("recurringEventId"), str),
             })
