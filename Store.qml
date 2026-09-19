@@ -297,18 +297,62 @@ Item {
   // ever becomes more than a curiosity.
   property var fired: ({})
 
+  function _sendNotification(title, body, joinUrl) {
+    var t = Model.escapeMarkup(title)
+    var b = Model.escapeMarkup(body)
+    if (joinUrl && Model.isWebLink(joinUrl)) {
+      // -A implies --wait: notify-send blocks until the notification is
+      // actioned or closed, then prints the chosen action's name. Omarchy's
+      // notification daemon renders no action buttons — clicking the popup
+      // invokes the action named "default" — so that is the name we register,
+      // and clicking the notification opens the meeting. Urgency "critical" is
+      // what makes the daemon keep it on screen until dismissed or joined (its
+      // durationFor() only returns 0/persist for critical; normal is clamped to
+      // ~8-30s), and it also bypasses Do Not Disturb — right for an imminent
+      // meeting. Title/body/url are passed as positional args ($1..$3), never
+      // spliced into the script, so nothing in an event's text can reach the
+      // shell.
+      Quickshell.execDetached(["/bin/sh", "-c",
+        'k=$(notify-send -a Calendar -u critical -i office-calendar -A default=Join -- "$1" "$2"); [ "$k" = default ] && exec /usr/bin/xdg-open "$3"',
+        "sh", t, b, joinUrl])
+    } else {
+      // "--" so a title beginning with "-" is text, not an option.
+      Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Calendar", "-u", "normal",
+        "-t", "12000", "-i", "office-calendar", "--", t, b])
+    }
+  }
+
+  function _eventNotificationBody(ev) {
+    return Model.relative(ev.startAt, now) + " · " + Model.rangeLabel(ev, hours12)
+      + (ev.location ? "\n" + ev.location : "")
+  }
+
+  // The join link for a notification: the extracted conference link first,
+  // then a location that is itself a plain web link (a pasted Zoom/Meet URL).
+  function _joinUrl(ev) {
+    if (Model.isWebLink(ev.meetLink || "")) return ev.meetLink
+    if (Model.isWebLink(ev.location || "")) return ev.location
+    return ""
+  }
+
   function checkNotifications() {
     var due = Model.dueNotifications(events, now, notifyMinutes, fired)
     for (var i = 0; i < due.length; i++) {
       var ev = due[i]
       fired[ev.id] = true
-      // "--" so a title beginning with "-" is text, not an option.
-      Quickshell.execDetached(["/usr/bin/notify-send", "-a", "Calendar", "-u", "normal",
-        "-t", "12000", "-i", "office-calendar", "--",
-        Model.escapeMarkup(ev.title),
-        Model.escapeMarkup(Model.relative(ev.startAt, now) + " · " + Model.rangeLabel(ev, hours12)
-          + (ev.location ? "\n" + ev.location : ""))])
+      _sendNotification(ev.title, _eventNotificationBody(ev), _joinUrl(ev))
     }
+  }
+
+  // A test notification in exactly the shape a real one takes — Join button and
+  // all. Uses the next real upcoming event when there is one, so what you
+  // preview is what you will get, and a synthetic sample otherwise.
+  function testNotification() {
+    var ev = Model.nextEvent(events, now)
+    if (ev)
+      _sendNotification(ev.title, _eventNotificationBody(ev), _joinUrl(ev))
+    else
+      _sendNotification("Test meeting", "in 5 minutes · sample event", "")
   }
 
   // ---------------------------------------------------------- lifecycle

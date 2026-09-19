@@ -467,6 +467,21 @@ Flickable {
           }
         }
       }
+
+      // A one-press way to see exactly what a meeting alert looks like — the
+      // same format the real ones use, populated from the next upcoming event.
+      Button {
+        iconText: "󰂚"
+        text: "SEND TEST NOTIFICATION"
+        bordered: true
+        foreground: root.panel.ink
+        accent: Color.accent
+        fontFamily: root.panel.mono
+        fontSize: Style.font.caption
+        horizontalPadding: Style.space(16)
+        verticalPadding: Style.space(8)
+        onClicked: root.panel.testNotification()
+      }
     }
 
     Item { width: 1; height: Style.space(6) }

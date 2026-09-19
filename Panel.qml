@@ -60,6 +60,7 @@ Panel {
   function setConfig(key, value) { if (store) store.setConfig(key, value) }
   function calendarEnabled(cal) { return store ? store.calendarEnabled(cal) : true }
   function toggleCalendar(cal) { if (store) store.toggleCalendar(cal) }
+  function testNotification() { if (store) store.testNotification() }
   function login() { if (store) store.login() }
   function installDeps() { if (store) store.installDeps() }
 
