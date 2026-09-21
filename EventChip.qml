@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 import Quickshell
 import qs.Commons
 import qs.Ui
@@ -19,6 +20,9 @@ Rectangle {
   // An event you declined stays visible for context, but struck through and
   // faded — it is not on your plate.
   readonly property bool declined: event && event.selfResponse === "declined" && !overflow
+  // Not yet responded (needsAction): a dotted outline in the event's colour.
+  // Behaves like an accepted event in every other respect.
+  readonly property bool pending: event && event.selfResponse === "needsAction" && !overflow
 
   signal overflowClicked()
 
@@ -123,6 +127,28 @@ Rectangle {
       font.family: root.panel.mono
       font.pixelSize: Style.font.caption
       elide: Text.ElideRight
+    }
+  }
+
+  // Awaiting your RSVP: a dotted outline in the event's own colour.
+  Shape {
+    anchors.fill: parent
+    visible: root.pending
+    z: 5
+    preferredRendererType: Shape.CurveRenderer
+    ShapePath {
+      strokeColor: root.tint
+      strokeWidth: 1
+      fillColor: "transparent"
+      strokeStyle: ShapePath.DashLine
+      dashPattern: [2, 2]
+      PathRectangle {
+        x: 0.5
+        y: 0.5
+        width: Math.max(0, root.width - 1)
+        height: Math.max(0, root.height - 1)
+        radius: root.radius
+      }
     }
   }
 
