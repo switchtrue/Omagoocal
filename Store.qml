@@ -291,11 +291,6 @@ Item {
   }
 
   // ------------------------------------------------------- notifications
-  //
-  // ponytail: fired ids live in memory, so restarting the shell inside an
-  // event's lead window can repeat one notification. Persist the set if that
-  // ever becomes more than a curiosity.
-  property var fired: ({})
 
   function _sendNotification(title, body, joinUrl) {
     var t = Model.escapeMarkup(title)
@@ -335,12 +330,39 @@ Item {
     return ""
   }
 
+  // A live, self-updating meeting alert. Re-issued every minute for an event
+  // inside the lead window, each time replacing the previous popup in place
+  // (freedesktop replaces_id) with a freshly-rendered body — so "in 5m" ticks
+  // down to "in 1m" to "now" instead of freezing at whatever it said when it
+  // first fired. The replace id is kept per-event in a runtime file; stdbuf
+  // forces notify-send to flush the printed id immediately (before it blocks
+  // on the Join action) so the next minute can replace rather than duplicate.
+  function _liveNotify(ev) {
+    var t = Model.escapeMarkup(ev.title)
+    var b = Model.escapeMarkup(_eventNotificationBody(ev))
+    var url = _joinUrl(ev)
+    Quickshell.execDetached(["/bin/sh", "-c",
+      'key=$(printf %s "$1" | tr -c "A-Za-z0-9._-" "_"); '
+      + 'IDF="${XDG_RUNTIME_DIR:-/tmp}/omagoocal-notif-$key"; '
+      + 'rid=$(cat "$IDF" 2>/dev/null); [ -n "$rid" ] || rid=0; '
+      + 'stdbuf -oL notify-send -a Calendar -u critical -i office-calendar -p -r "$rid" -A default=Join -- "$2" "$3" | { '
+      + 'IFS= read -r nid; [ -n "$nid" ] && printf %s "$nid" > "$IDF"; '
+      + 'IFS= read -r act; [ "$act" = default ] && [ -n "$4" ] && exec /usr/bin/xdg-open "$4"; }',
+      "sh", String(ev.id), t, b, url])
+  }
+
   function checkNotifications() {
-    var due = Model.dueNotifications(events, now, notifyMinutes, fired)
-    for (var i = 0; i < due.length; i++) {
-      var ev = due[i]
-      fired[ev.id] = true
-      _sendNotification(ev.title, _eventNotificationBody(ev), _joinUrl(ev))
+    if (!notifyMinutes) return
+    for (var i = 0; i < events.length; i++) {
+      var ev = events[i]
+      if (!ev || ev.allDay || ev.overflow) continue
+      if (ev.selfResponse === "declined") continue   // no alert for events you declined
+      var mins = Math.round((ev.startAt.getTime() - now.getTime()) / 60000)
+      // Update every minute from the lead time until start ("now" is the final
+      // frame). Once it has started we stop re-issuing; the last popup — showing
+      // "now" with the Join action — stays put (critical) until you join or
+      // dismiss it.
+      if (mins >= 0 && mins <= notifyMinutes) _liveNotify(ev)
     }
   }
 
