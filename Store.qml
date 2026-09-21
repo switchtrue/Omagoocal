@@ -344,8 +344,15 @@ Item {
     Quickshell.execDetached(["/bin/sh", "-c",
       'key=$(printf %s "$1" | tr -c "A-Za-z0-9._-" "_"); '
       + 'IDF="${XDG_RUNTIME_DIR:-/tmp}/omagoocal-notif-$key"; '
+      // Each minute spawns a new "notify-send -A --wait" that lives until the
+      // popup is actioned or closed. Replacing the popup does NOT end the old
+      // waiters, and every one stays subscribed to the "default" action — so a
+      // single click would fire all of them (N tabs). Tag each with a per-event
+      // hint and kill the previous waiter before issuing the next, so exactly
+      // one handler is ever live.
+      + 'pkill -f "x-omagoocal-key:$key" 2>/dev/null; '
       + 'rid=$(cat "$IDF" 2>/dev/null); [ -n "$rid" ] || rid=0; '
-      + 'stdbuf -oL notify-send -a Calendar -u critical -i office-calendar -p -r "$rid" -A default=Join -- "$2" "$3" | { '
+      + 'stdbuf -oL notify-send -a Calendar -h string:x-omagoocal-key:"$key" -u critical -i office-calendar -p -r "$rid" -A default=Join -- "$2" "$3" | { '
       + 'IFS= read -r nid; [ -n "$nid" ] && printf %s "$nid" > "$IDF"; '
       + 'IFS= read -r act; [ "$act" = default ] && [ -n "$4" ] && exec /usr/bin/xdg-open "$4"; }',
       "sh", String(ev.id), t, b, url])
