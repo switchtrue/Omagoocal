@@ -41,7 +41,11 @@ BarWidget {
     if (!nextEvent) return ""
     var title = String(nextEvent.title)
     if (title.length > 22) title = title.substring(0, 21) + "…"
-    return title + "  " + Model.relative(nextEvent.startAt, now)
+    // Before it starts: how long until it does. Once running: how long is left.
+    var when = running
+      ? Model.remaining(nextEvent.endAt, now)
+      : Model.relative(nextEvent.startAt, now)
+    return title + "  " + when
   }
 
   function refresh() {

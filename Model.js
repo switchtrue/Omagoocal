@@ -289,6 +289,17 @@ function relative(target, now) {
   return "in " + Math.round(mins / 1440) + "d"
 }
 
+// Time left in an in-progress event, e.g. "20m left", "1h 5m left". Used by
+// the bar once a meeting has started, in place of "started Xm ago".
+function remaining(target, now) {
+  var mins = Math.round((target - now) / 60000)
+  if (mins <= 0) return "ending"
+  if (mins < 60) return mins + "m left"
+  var h = Math.floor(mins / 60)
+  var m = mins % 60
+  return h + "h" + (m ? " " + m + "m" : "") + " left"
+}
+
 // Rec. 601 luma, 0-255. Close enough for picking ink and for asking whether a
 // theme is light; a full colour-space conversion buys nothing here.
 function luma(hex) {
@@ -332,6 +343,7 @@ function dueNotifications(events, now, leadMinutes, fired) {
   for (var i = 0; i < events.length; i++) {
     var ev = events[i]
     if (ev.allDay || ev.overflow || fired[ev.id]) continue
+    if (ev.selfResponse === "declined") continue   // no alert for events you declined
     var at = ev.startAt.getTime()
     // Already started, or still beyond the lead window: not now.
     if (at < now.getTime() || at > horizon) continue
@@ -368,6 +380,7 @@ function renderNotes(html) {
 function nextEvent(events, now) {
   for (var i = 0; i < events.length; i++) {
     if (events[i].allDay) continue
+    if (events[i].selfResponse === "declined") continue   // declined: not "next"
     if (events[i].endAt > now) return events[i]
   }
   return null

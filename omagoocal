@@ -691,6 +691,18 @@ def _attendees(ev):
     return people[:MAX_ATTENDEES]
 
 
+def _self_response(ev):
+    """The current user's own RSVP: accepted / declined / tentative /
+    needsAction, or "" when they aren't a listed guest (e.g. a personal event
+    or one they organised without inviting themselves)."""
+    raw = ev.get("attendees")
+    if isinstance(raw, list):
+        for a in raw:
+            if isinstance(a, dict) and a.get("self") and isinstance(a.get("responseStatus"), str):
+                return a["responseStatus"]
+    return ""
+
+
 def events(time_min, time_max, calendars=None, fresh=False):
     active = [c for c in (calendar_list(fresh) if calendars is None else calendars)
               if not c.get("error") and c["enabled"]]
@@ -745,6 +757,7 @@ def events(time_min, time_max, calendars=None, fresh=False):
                 "meetLink": _text(meet_uri, MAX_SHORT),
                 "meetLabel": _text(meet_name, MAX_SHORT),
                 "attendees": _attendees(ev),
+                "selfResponse": _text(_self_response(ev), MAX_SHORT),
                 "writable": cal["writable"],
                 "recurring": isinstance(ev.get("recurringEventId"), str),
             })

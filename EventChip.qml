@@ -16,6 +16,9 @@ Rectangle {
   property bool compact: false          // month cells: one line, no times
   property bool overflow: false         // "+N more", not a real event
   property bool past: event && event.endAt < panel.now && !overflow
+  // An event you declined stays visible for context, but struck through and
+  // faded — it is not on your plate.
+  readonly property bool declined: event && event.selfResponse === "declined" && !overflow
 
   signal overflowClicked()
 
@@ -27,8 +30,8 @@ Rectangle {
   radius: Style.cornerRadius > 0 ? Style.space(3) : 0
   // Delegates outlive their model entry by a frame when a view swaps out.
   visible: root.event !== null && root.event !== undefined
-  // A past event fades, but on a light ground 45% is close to invisible.
-  opacity: past ? (panel.lightSurface ? 0.62 : 0.45) : 1.0
+  // A past or declined event fades, but on a light ground 45% is close to invisible.
+  opacity: (past || declined) ? (panel.lightSurface ? 0.62 : 0.45) : 1.0
   clip: true
 
   Behavior on color { ColorAnimation { duration: 120 } }
@@ -105,7 +108,7 @@ Rectangle {
       color: root.panel.ink
       font.family: root.panel.mono
       font.pixelSize: root.compact ? Style.font.caption : Style.font.bodySmall
-      font.strikeout: false
+      font.strikeout: root.declined
       elide: Text.ElideRight
       maximumLineCount: root.compact ? 1 : 2
       wrapMode: root.compact ? Text.NoWrap : Text.Wrap
