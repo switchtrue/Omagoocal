@@ -30,7 +30,11 @@ Rectangle {
 
   color: overflow
     ? (hover.containsMouse ? Util.alpha(Color.accent, 0.26) : Util.alpha(panel.ink, 0.13))
-    : Util.alpha(tint, Model.chipAlpha(panel.lightSurface, hover.containsMouse))
+    : root.pending
+      // Awaiting-RSVP events carry no wash — the dotted outline is the signal;
+      // a faint tint on hover keeps click feedback.
+      ? (hover.containsMouse ? Util.alpha(tint, 0.10) : "transparent")
+      : Util.alpha(tint, Model.chipAlpha(panel.lightSurface, hover.containsMouse))
   radius: Style.cornerRadius > 0 ? Style.space(3) : 0
   // Delegates outlive their model entry by a frame when a view swaps out.
   visible: root.event !== null && root.event !== undefined
