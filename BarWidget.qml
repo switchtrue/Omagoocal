@@ -13,7 +13,7 @@ import "Model.js" as Model
 // Panel.qml owns everything you have to look at deliberately.
 BarWidget {
   id: root
-  moduleName: "io.github.huligabuliga.omagoocal"
+  moduleName: "mike.omagoocal"
 
   readonly property bool showNextEvent: setting("showNextEvent", true) !== false
   // The clock format is a calendar preference, so it lives with the rest of

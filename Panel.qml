@@ -17,8 +17,8 @@ import "Model.js" as Model
 // forwards. It never speaks HTTP and never opens a path.
 Panel {
   id: root
-  moduleName: "io.github.huligabuliga.omagoocal"
-  ipcTarget: "io.github.huligabuliga.omagoocal"
+  moduleName: "mike.omagoocal"
+  ipcTarget: "mike.omagoocal"
   manageIpc: false
 
   property var anchorItem: null
