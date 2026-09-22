@@ -579,6 +579,73 @@ Item {
           }
         }
 
+        // Attachments — usually a Google Drive doc (e.g. 1:1 notes). Click to
+        // open in the browser. Only https links reach xdg-open.
+        Column {
+          width: parent.width
+          spacing: Style.space(4)
+          visible: root.draft && root.draft.attachments && root.draft.attachments.length > 0
+
+          Text {
+            text: "ATTACHMENTS"
+            color: root.panel.faint
+            font.family: root.panel.mono
+            font.pixelSize: Style.font.caption
+            font.letterSpacing: 1.5
+          }
+
+          Repeater {
+            model: root.draft && root.draft.attachments ? root.draft.attachments : []
+
+            Item {
+              id: attFileRow
+              required property var modelData
+              width: parent.width
+              height: Style.space(22)
+
+              Text {
+                id: attFileIcon
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                text: "󰈙"
+                color: attFileArea.containsMouse ? Color.accent : Util.alpha(root.panel.ink, 0.6)
+                font.family: root.panel.mono
+                font.pixelSize: Style.font.bodySmall
+              }
+
+              Text {
+                anchors.left: attFileIcon.right
+                anchors.leftMargin: Style.space(8)
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: attFileRow.modelData.title
+                textFormat: Text.PlainText
+                elide: Text.ElideRight
+                color: attFileArea.containsMouse ? Color.accent : root.panel.ink
+                font.underline: attFileArea.containsMouse
+                font.family: root.panel.mono
+                font.pixelSize: Style.font.bodySmall
+              }
+
+              MouseArea {
+                id: attFileArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (Model.isWebLink(attFileRow.modelData.url))
+                    Quickshell.execDetached(["/usr/bin/xdg-open", attFileRow.modelData.url])
+                }
+
+                PanelToolTip {
+                  visible: attFileArea.containsMouse
+                  text: attFileRow.modelData.url
+                }
+              }
+            }
+          }
+        }
+
         // Video-conferencing join link (Google Meet, Zoom, Teams, ...). Read
         // only: it is never sent back on save, so it can't be clobbered. Shown
         // only for a real https link — the same trust rule as every other URL

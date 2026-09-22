@@ -703,6 +703,32 @@ def _self_response(ev):
     return ""
 
 
+MAX_ATTACHMENTS = 25
+
+
+def _attachments(ev):
+    """Files attached to the event — most often a Google Drive doc (e.g. 1:1
+    notes) — as {title, url, mime}. Only https links are kept, so a click can
+    be handed to the browser safely."""
+    out = []
+    raw = ev.get("attachments")
+    if isinstance(raw, list):
+        for a in raw:
+            if not isinstance(a, dict):
+                continue
+            url = a.get("fileUrl")
+            if not (isinstance(url, str) and url.startswith("https://")):
+                continue
+            out.append({
+                "title": _text(a.get("title") or url, MAX_LOCATION),
+                "url": _text(url, MAX_SHORT),
+                "mime": _text(a.get("mimeType"), MAX_SHORT),
+            })
+            if len(out) >= MAX_ATTACHMENTS:
+                break
+    return out
+
+
 def events(time_min, time_max, calendars=None, fresh=False):
     active = [c for c in (calendar_list(fresh) if calendars is None else calendars)
               if not c.get("error") and c["enabled"]]
@@ -757,6 +783,7 @@ def events(time_min, time_max, calendars=None, fresh=False):
                 "meetLink": _text(meet_uri, MAX_SHORT),
                 "meetLabel": _text(meet_name, MAX_SHORT),
                 "attendees": _attendees(ev),
+                "attachments": _attachments(ev),
                 "selfResponse": _text(_self_response(ev), MAX_SHORT),
                 "writable": cal["writable"],
                 "recurring": isinstance(ev.get("recurringEventId"), str),
