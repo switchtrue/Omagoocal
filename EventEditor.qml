@@ -650,12 +650,24 @@ Item {
         // only: it is never sent back on save, so it can't be clobbered. Shown
         // only for a real https link — the same trust rule as every other URL
         // in this panel.
-        Item {
+        Column {
           width: parent.width
-          height: joinRow.implicitHeight
+          spacing: Style.space(4)
           visible: root.draft && Model.isWebLink(root.draft.meetLink || "")
 
-          Row {
+          Text {
+            text: "VIDEO CALL"
+            color: root.panel.faint
+            font.family: root.panel.mono
+            font.pixelSize: Style.font.caption
+            font.letterSpacing: 1.5
+          }
+
+          Item {
+            width: parent.width
+            height: joinRow.implicitHeight
+
+            Row {
             id: joinRow
             spacing: Style.space(6)
 
@@ -696,6 +708,7 @@ Item {
               visible: joinArea.containsMouse
               text: root.draft ? root.draft.meetLink : ""
             }
+          }
           }
         }
 
