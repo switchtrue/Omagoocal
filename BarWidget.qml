@@ -33,12 +33,19 @@ BarWidget {
   readonly property bool imminent: minutesAway <= imminentMinutes
   readonly property bool running: nextEvent && minutesAway <= 0
 
-  // With nothing upcoming the label is empty and the glyph alone stands in:
-  // the clock beside this widget already shows the date, and a second copy
-  // of it read as a gap in the bar.
-  readonly property bool iconOnly: vertical || !showNextEvent || !nextEvent
+  // The next meeting only earns a place in the bar within a working-day horizon.
+  // A meeting more than 8 hours out — e.g. tomorrow's first, glanced at late in
+  // the afternoon — is left off so the bar stays about today. A running meeting
+  // is always in the window. The hover tooltip still names a further-out one.
+  readonly property int hideBeyondHours: 8
+  readonly property bool withinHorizon: nextEvent && minutesAway <= hideBeyondHours * 60
+
+  // With nothing upcoming (or nothing within the horizon) the label is empty and
+  // the glyph alone stands in: the clock beside this widget already shows the
+  // date, and a second copy of it read as a gap in the bar.
+  readonly property bool iconOnly: vertical || !showNextEvent || !nextEvent || !withinHorizon
   readonly property string label: {
-    if (!nextEvent) return ""
+    if (!nextEvent || !withinHorizon) return ""
     var title = String(nextEvent.title)
     if (title.length > 22) title = title.substring(0, 21) + "…"
     // Before it starts: how long until it does. Once running: how long is left.
